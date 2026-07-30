@@ -32,13 +32,17 @@ static void load_config() {
         if (!std::getline(ss, k, '=')) continue;
         std::string v;
         if (!std::getline(ss, v)) continue;
-        if (k == "wifi_ssid")        g_cfg.wifi_ssid  = v;
-        else if (k == "bssid")       g_cfg.bssid      = v;
-        else if (k == "bluetooth_mac") g_cfg.bt_mac   = v;
-        else if (k == "widevine_drm_id") g_cfg.drm_id = v;
-        else if (k == "system_id")   g_cfg.system_id  = v;
+        if (k == "wifi_ssid")           g_cfg.wifi_ssid  = v;
+        else if (k == "bssid")          g_cfg.bssid      = v;
+        else if (k == "bluetooth_mac")  g_cfg.bt_mac     = v;
+        else if (k == "widevine_drm_id") g_cfg.drm_id    = v;
+        else if (k == "system_id")      g_cfg.system_id  = v;
     }
 }
+
+// Type aliases to disambiguate overloaded functions in NDK 29+
+using open_func_t  = int (*)(const char *, int, ...);
+using ioctl_func_t = int (*)(int, unsigned long, ...);
 
 // Hook: redirect MAC address file reads to spoofed files
 static int (*orig_open)(const char *, int, ...);
@@ -61,8 +65,10 @@ static int hook_ioctl(int fd, unsigned long req, void *argp) {
         struct ifreq *ifr = (struct ifreq *)argp;
         std::string iface(ifr->ifr_name);
         const std::string *mac_str = nullptr;
-        if (iface == "wlan0")                           mac_str = &g_cfg.bssid;
-        else if (iface == "bt0" || iface == "bluetooth") mac_str = &g_cfg.bt_mac;
+        if (iface == "wlan0")
+            mac_str = &g_cfg.bssid;
+        else if (iface == "bt0" || iface == "bluetooth")
+            mac_str = &g_cfg.bt_mac;
         if (mac_str) {
             unsigned int mac[8] = {};
             int n = sscanf(mac_str->c_str(), "%x:%x:%x:%x:%x:%x:%x:%x",
@@ -82,7 +88,7 @@ public:
         this->env = env;
     }
 
-    void preAppSpecialize(AppSpecializeArgs *args) override {
+    void preAppSpecialize(AppSpecializeArgs * /*args*/) override {
         load_config();
         // Write spoofed addresses to readable files
         auto write_file = [](const char *path, const std::string &val) {
@@ -94,8 +100,14 @@ public:
     }
 
     void postAppSpecialize(const AppSpecializeArgs *) override {
-        DobbyHook((void *)open,  (void *)hook_open,  (void **)&orig_open);
-        DobbyHook((void *)ioctl, (void *)hook_ioctl, (void **)&orig_ioctl);
+        // Explicit casts resolve overload ambiguity introduced in NDK 29
+        // (open and ioctl are now __overloadable / __pass_object_size)
+        DobbyHook((void *)(open_func_t)open,
+                  (void *)hook_open,
+                  (void **)&orig_open);
+        DobbyHook((void *)(ioctl_func_t)ioctl,
+                  (void *)hook_ioctl,
+                  (void **)&orig_ioctl);
     }
 
 private:
