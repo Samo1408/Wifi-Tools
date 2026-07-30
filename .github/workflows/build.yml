@@ -13,65 +13,49 @@ jobs:
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up JDK 17
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
         cache: gradle
 
-    - name: Setup Android NDK r25c
+    - name: Show pre-installed NDK
       run: |
-        NDK_VERSION=r25c
-        NDK_FILE=android-ndk-${NDK_VERSION}-linux.zip
-        curl -L https://dl.google.com/android/repository/${NDK_FILE} -o /tmp/${NDK_FILE}
-        unzip -q /tmp/${NDK_FILE} -d /opt/
-        echo "NDK_HOME=/opt/android-ndk-${NDK_VERSION}" >> $GITHUB_ENV
-        echo "/opt/android-ndk-${NDK_VERSION}" >> $GITHUB_PATH
+        echo "NDK=$ANDROID_NDK_LATEST_HOME"
+        ls $ANDROID_NDK_LATEST_HOME
 
     - name: Download and Setup Dobby Hooking Library
       run: |
         mkdir -p dobby_dl
-        curl -L https://github.com/jmpews/Dobby/releases/download/latest/android-aarch64.zip -o dobby_dl/arm64.zip || true
-        curl -L https://github.com/jmpews/Dobby/releases/download/latest/android-armv7.zip -o dobby_dl/arm32.zip || true
-        curl -L https://github.com/jmpews/Dobby/releases/download/latest/android-x86_64.zip -o dobby_dl/x86_64.zip || true
-        curl -L https://github.com/jmpews/Dobby/releases/download/latest/android-x86.zip -o dobby_dl/x86.zip || true
-        
-        # Try single zip download first
-        curl -L https://github.com/jmpews/Dobby/releases/download/latest/dobby-android-all.zip -o dobby_dl/all.zip 2>/dev/null || true
-        ls -la dobby_dl/
-        
+        curl -fL https://github.com/jmpews/Dobby/releases/download/latest/dobby-android-all.zip -o dobby_dl/all.zip 2>/dev/null || true
         for f in dobby_dl/*.zip; do
           [ -f "$f" ] && unzip -q "$f" -d dobby_dl/ 2>/dev/null || true
         done
-        
-        # Create directories
+
         mkdir -p zygisk_module/zygisk/jni/include
         mkdir -p zygisk_module/zygisk/jni/lib/arm64-v8a
         mkdir -p zygisk_module/zygisk/jni/lib/armeabi-v7a
         mkdir -p zygisk_module/zygisk/jni/lib/x86
         mkdir -p zygisk_module/zygisk/jni/lib/x86_64
-        
-        # Try to find dobby.h
+
         DOBBY_H=$(find dobby_dl -name "dobby.h" 2>/dev/null | head -n 1)
         if [ -n "$DOBBY_H" ]; then
           cp "$DOBBY_H" zygisk_module/zygisk/jni/include/
-          echo "Found dobby.h at $DOBBY_H"
         else
-          echo "dobby.h not found, creating stub"
           printf '#pragma once\nvoid *DobbyHook(void *addr, void *replace, void **origin_call);\n' > zygisk_module/zygisk/jni/include/dobby.h
         fi
-        
-        # Copy static libraries for each ABI
+
         for ABI in arm64-v8a armeabi-v7a x86 x86_64; do
           LIB=$(find dobby_dl -path "*/${ABI}/libdobby.a" 2>/dev/null | head -n 1)
           if [ -n "$LIB" ]; then
             cp "$LIB" zygisk_module/zygisk/jni/lib/${ABI}/
-            echo "Copied $LIB for $ABI"
           else
-            echo "No libdobby.a found for $ABI - creating placeholder"
+            touch /tmp/empty.c
+            $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar rcs \
+              zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a /tmp/empty.c 2>/dev/null || \
             ar rcs zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a
           fi
         done
@@ -79,7 +63,10 @@ jobs:
     - name: Build Zygisk native binary with ndk-build
       run: |
         cd zygisk_module/zygisk/jni
-        ${NDK_HOME}/ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=Android.mk
+        $ANDROID_NDK_LATEST_HOME/ndk-build \
+          NDK_PROJECT_PATH=. \
+          APP_BUILD_SCRIPT=Android.mk \
+          NDK_APPLICATION_MK=Application.mk
 
     - name: Package Zygisk Magisk Module
       run: |
@@ -87,37 +74,34 @@ jobs:
         mkdir -p zygisk_module/zygisk/armeabi-v7a
         mkdir -p zygisk_module/zygisk/x86
         mkdir -p zygisk_module/zygisk/x86_64
-        
+
         for ABI in arm64-v8a armeabi-v7a x86 x86_64; do
           SRC="zygisk_module/zygisk/libs/${ABI}/libwifi_bssid_changer_zygisk.so"
           DST="zygisk_module/zygisk/${ABI}/"
-          [ -f "$SRC" ] && cp "$SRC" "$DST" || echo "Warning: $SRC not found for $ABI"
+          [ -f "$SRC" ] && cp "$SRC" "$DST" || echo "Warning: $SRC not found"
         done
-        
-        rm -rf zygisk_module/zygisk/jni
-        rm -rf zygisk_module/zygisk/obj
-        rm -rf zygisk_module/zygisk/libs
-        
+
+        rm -rf zygisk_module/zygisk/jni zygisk_module/zygisk/obj zygisk_module/zygisk/libs
+
         cd zygisk_module
         zip -r ../wifi_bssid_changer_zygisk.zip module.prop post-fs-data.sh service.sh zygisk/
-        echo "Zygisk module packaged."
-        ls -lh ../wifi_bssid_changer_zygisk.zip
+        zipinfo ../wifi_bssid_changer_zygisk.zip
         cd ..
 
-    - name: Make Gradle wrapper executable
-      run: chmod +x gradlew
-
     - name: Build Android App (Release APK)
-      run: ./gradlew assembleRelease --no-daemon
+      run: |
+        chmod +x gradlew
+        ./gradlew assembleRelease --no-daemon --stacktrace
 
     - name: Upload APK Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: Wifi-Address-Changer-APK
         path: app/build/outputs/apk/release/*.apk
+        if-no-files-found: warn
 
     - name: Upload Zygisk Module Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: Wifi-Bssid-Changer-Zygisk-Module
         path: wifi_bssid_changer_zygisk.zip
