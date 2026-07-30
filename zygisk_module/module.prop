@@ -1,0 +1,6 @@
+id=wifi_bssid_changer_zygisk
+name=WiFi Name & Address Spoof (Zygisk)
+version=v1.0
+versionCode=1
+author=Samo1408
+description=High stealth spoofer for WiFi SSID, BSSID (8 fields), Bluetooth MAC, Widevine DRM ID and System ID. Hooks apps on launch using Dobby library.
