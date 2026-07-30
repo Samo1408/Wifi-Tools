@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#FAFAFA">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <View
+            android:id="@+id/root_indicator"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentTop="true"
+            android:background="#FF0000"
+            android:layout_margin="8dp" />
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Wifi Name &amp; Address Changer"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#333333"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentTop="true"
+            android:layout_toStartOf="@id/root_indicator"
+            android:padding="8dp" />
+
+        <TextView
+            android:id="@+id/tv_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/tv_title"
+            android:text="حالة الروت: جاري التحقق..."
+            android:textSize="14sp"
+            android:padding="8dp"
+            android:textColor="#777777" />
+
+        <TextView
+            android:id="@+id/lbl_wifi_ssid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/tv_status"
+            android:text="اسم شبكة الوايفاي الجديد (SSID)"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+
+        <LinearLayout
+            android:id="@+id/layout_wifi_ssid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/lbl_wifi_ssid"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/et_wifi_ssid"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="ادخل اسم الشبكة الجديد"
+                android:singleLine="true" />
+
+            <Button
+                android:id="@+id/btn_random_wifi"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="عشوائي" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/lbl_bssid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/layout_wifi_ssid"
+            android:text="عنوان MAC / BSSID الجديد (8 خانات تفصل بينها :)"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+
+        <LinearLayout
+            android:id="@+id/layout_bssid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/lbl_bssid"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/et_bssid"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="XX:XX:XX:XX:XX:XX:XX:XX"
+                android:singleLine="true" />
+
+            <Button
+                android:id="@+id/btn_random_bssid"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="عشوائي" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/lbl_bluetooth"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/layout_bssid"
+            android:text="عنوان Bluetooth Mac Address الجديد"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+
+        <LinearLayout
+            android:id="@+id/layout_bluetooth"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/lbl_bluetooth"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/et_bluetooth_mac"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="XX:XX:XX:XX:XX:XX:XX:XX"
+                android:singleLine="true" />
+
+            <Button
+                android:id="@+id/btn_random_bt"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="عشوائي" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/lbl_drm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/layout_bluetooth"
+            android:text="معرف Widevine DRM ID الجديد"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+
+        <LinearLayout
+            android:id="@+id/layout_drm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/lbl_drm"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/et_drm_id"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="ادخل معرف Widevine الجديد"
+                android:singleLine="true" />
+
+            <Button
+                android:id="@+id/btn_random_drm"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="عشوائي" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/lbl_system_id"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/layout_drm"
+            android:text="معرف النظام System ID للـ DRM"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+
+        <LinearLayout
+            android:id="@+id/layout_system_id"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/lbl_system_id"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/et_system_id"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="مثال: 4012"
+                android:singleLine="true" />
+
+            <Button
+                android:id="@+id/btn_random_sys_id"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="عشوائي" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_actions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/layout_system_id"
+            android:orientation="horizontal"
+            android:layout_marginTop="24dp">
+
+            <Button
+                android:id="@+id/btn_save"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="حفظ وتطبيق"
+                android:backgroundTint="#3F51B5"
+                android:textColor="#FFFFFF"
+                android:layout_marginEnd="8dp" />
+
+            <Button
+                android:id="@+id/btn_restore"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="استعادة الافتراضي"
+                android:backgroundTint="#757575"
+                android:textColor="#FFFFFF" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_service_ctrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/layout_actions"
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="32dp">
+
+            <Button
+                android:id="@+id/btn_start_service"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="تشغيل الخدمة"
+                android:backgroundTint="#4CAF50"
+                android:textColor="#FFFFFF"
+                android:layout_marginEnd="8dp" />
+
+            <Button
+                android:id="@+id/btn_stop_service"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="إيقاف الخدمة"
+                android:backgroundTint="#F44336"
+                android:textColor="#FFFFFF" />
+        </LinearLayout>
+
+    </RelativeLayout>
+</ScrollView>
