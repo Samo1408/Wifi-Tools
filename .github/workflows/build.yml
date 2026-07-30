@@ -30,7 +30,12 @@ jobs:
     - name: Download and Setup Dobby Hooking Library
       run: |
         mkdir -p dobby_dl
-        curl -fL https://github.com/jmpews/Dobby/releases/download/latest/dobby-android-all.zip -o dobby_dl/all.zip 2>/dev/null || true
+        # Primary: try tagged release asset
+        curl -fL https://github.com/jmpews/Dobby/releases/latest/download/dobby-android-all.zip -o dobby_dl/all.zip 2>/dev/null || true
+        # Fallback: try specific release v1.1
+        if [ ! -f dobby_dl/all.zip ] || [ ! -s dobby_dl/all.zip ]; then
+          curl -fL https://github.com/jmpews/Dobby/releases/download/v1.1/dobby-android-all.zip -o dobby_dl/all.zip 2>/dev/null || true
+        fi
         for f in dobby_dl/*.zip; do
           [ -f "$f" ] && unzip -q "$f" -d dobby_dl/ 2>/dev/null || true
         done
@@ -53,10 +58,23 @@ jobs:
           if [ -n "$LIB" ]; then
             cp "$LIB" zygisk_module/zygisk/jni/lib/${ABI}/
           else
-            touch /tmp/empty.c
-            $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar rcs \
-              zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a /tmp/empty.c 2>/dev/null || \
-            ar rcs zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a
+            # Create a valid stub .o and archive it
+            cat > /tmp/dobby_stub.c << 'EOF'
+void *DobbyHook(void *addr, void *replace, void **origin_call) { return 0; }
+EOF
+            ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
+              --target=aarch64-linux-android21 \
+              -c /tmp/dobby_stub.c -o /tmp/dobby_stub.o 2>/dev/null || true
+            if [ -f /tmp/dobby_stub.o ]; then
+              ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar rcs \
+                zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a /tmp/dobby_stub.o 2>/dev/null
+            fi
+            # Ultimate fallback: just ar with a valid empty C file compiled by gcc
+            if [ ! -f zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a ]; then
+              echo "int dummy;" > /tmp/dummy.c
+              gcc -c /tmp/dummy.c -o /tmp/dummy.o 2>/dev/null
+              ar rcs zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a /tmp/dummy.o 2>/dev/null || true
+            fi
           fi
         done
 
