@@ -22,18 +22,10 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Setup NDK 27 (avoids overload ambiguity in NDK 29+)
+    - name: Show pre-installed NDK
       run: |
-        NDK_ZIP="android-ndk-r27-linux.zip"
-        NDK_DIR="/tmp/android-ndk-r27"
-        if [ ! -d "$NDK_DIR" ]; then
-          wget -q "https://dl.google.com/android/repository/${NDK_ZIP}"
-          unzip -q "${NDK_ZIP}" -d /tmp/
-          rm "${NDK_ZIP}"
-        fi
-        echo "ANDROID_NDK_HOME=${NDK_DIR}" >> $GITHUB_ENV
-        echo "NDK version:"
-        ${NDK_DIR}/ndk-build --version
+        echo "NDK=$ANDROID_NDK_LATEST_HOME"
+        ls $ANDROID_NDK_LATEST_HOME
 
     - name: Download and Setup Dobby Hooking Library
       run: |
@@ -62,7 +54,7 @@ jobs:
             cp "$LIB" zygisk_module/zygisk/jni/lib/${ABI}/
           else
             touch /tmp/empty.c
-            ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar rcs \
+            $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar rcs \
               zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a /tmp/empty.c 2>/dev/null || \
             ar rcs zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a
           fi
@@ -71,7 +63,7 @@ jobs:
     - name: Build Zygisk native binary with ndk-build
       run: |
         cd zygisk_module/zygisk/jni
-        ${ANDROID_NDK_HOME}/ndk-build \
+        $ANDROID_NDK_LATEST_HOME/ndk-build \
           NDK_PROJECT_PATH=. \
           APP_BUILD_SCRIPT=Android.mk \
           NDK_APPLICATION_MK=Application.mk

@@ -13,6 +13,6 @@ LOCAL_MODULE := wifi_bssid_changer_zygisk
 LOCAL_SRC_FILES := main.cpp
 LOCAL_STATIC_LIBRARIES := dobby
 LOCAL_LDLIBS := -llog
-LOCAL_CPPFLAGS := -std=c++17 -Wall -Wextra -fvisibility=hidden -Iinclude
+LOCAL_CPPFLAGS := -std=c++17 -Wall -Wextra -fvisibility=hidden -Iinclude -U_FORTIFY_SOURCE
 
 include $(BUILD_SHARED_LIBRARY)
