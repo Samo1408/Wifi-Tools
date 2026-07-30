@@ -5,6 +5,7 @@
 #include <net/if.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <dlfcn.h>
 #include <string>
 #include <fstream>
 #include <sstream>
@@ -41,6 +42,7 @@ static void load_config() {
 }
 
 // Hook: redirect MAC address file reads to spoofed files
+// open() resolved by -U_FORTIFY_SOURCE in Android.mk
 static int (*orig_open)(const char *, int, ...);
 static int hook_open(const char *path, int flags, mode_t mode) {
     if (path) {
@@ -54,6 +56,7 @@ static int hook_open(const char *path, int flags, mode_t mode) {
 }
 
 // Hook: spoof hardware MAC address for ioctl queries
+// ioctl() is __overloadable in NDK; use dlsym at runtime to get real addr
 static int (*orig_ioctl)(int, unsigned long, ...);
 static int hook_ioctl(int fd, unsigned long req, void *argp) {
     int ret = orig_ioctl(fd, req, argp);
@@ -86,7 +89,6 @@ public:
 
     void preAppSpecialize(AppSpecializeArgs *args) override {
         load_config();
-        // Write spoofed addresses to readable files
         auto write_file = [](const char *path, const std::string &val) {
             std::ofstream f(path);
             if (f.is_open()) f << val << "\n";
@@ -96,8 +98,13 @@ public:
     }
 
     void postAppSpecialize(const AppSpecializeArgs *) override {
-        DobbyHook((void *)open,  (void *)hook_open,  (void **)&orig_open);
-        DobbyHook((void *)ioctl, (void *)hook_ioctl, (void **)&orig_ioctl);
+        // open() fixed by -U_FORTIFY_SOURCE in Android.mk
+        DobbyHook((void *)open, (void *)hook_open, (void **)&orig_open);
+        // ioctl() is __overloadable, resolve at runtime via dlsym
+        void *real_ioctl = dlsym(RTLD_NEXT, "ioctl");
+        if (real_ioctl) {
+            DobbyHook(real_ioctl, (void *)hook_ioctl, (void **)&orig_ioctl);
+        }
     }
 
 private:
