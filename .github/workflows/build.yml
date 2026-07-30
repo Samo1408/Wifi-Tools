@@ -30,50 +30,36 @@ jobs:
     - name: Download and Setup Dobby Hooking Library
       run: |
         mkdir -p dobby_dl
-        # Primary: try tagged release asset
         curl -fL https://github.com/jmpews/Dobby/releases/latest/download/dobby-android-all.zip -o dobby_dl/all.zip 2>/dev/null || true
-        # Fallback: try specific release v1.1
-        if [ ! -f dobby_dl/all.zip ] || [ ! -s dobby_dl/all.zip ]; then
+        if [ ! -s dobby_dl/all.zip ]; then
           curl -fL https://github.com/jmpews/Dobby/releases/download/v1.1/dobby-android-all.zip -o dobby_dl/all.zip 2>/dev/null || true
         fi
         for f in dobby_dl/*.zip; do
           [ -f "$f" ] && unzip -q "$f" -d dobby_dl/ 2>/dev/null || true
         done
-
         mkdir -p zygisk_module/zygisk/jni/include
         mkdir -p zygisk_module/zygisk/jni/lib/arm64-v8a
         mkdir -p zygisk_module/zygisk/jni/lib/armeabi-v7a
         mkdir -p zygisk_module/zygisk/jni/lib/x86
         mkdir -p zygisk_module/zygisk/jni/lib/x86_64
-
         DOBBY_H=$(find dobby_dl -name "dobby.h" 2>/dev/null | head -n 1)
         if [ -n "$DOBBY_H" ]; then
           cp "$DOBBY_H" zygisk_module/zygisk/jni/include/
         else
           printf '#pragma once\nvoid *DobbyHook(void *addr, void *replace, void **origin_call);\n' > zygisk_module/zygisk/jni/include/dobby.h
         fi
-
         for ABI in arm64-v8a armeabi-v7a x86 x86_64; do
           LIB=$(find dobby_dl -path "*/${ABI}/libdobby.a" 2>/dev/null | head -n 1)
           if [ -n "$LIB" ]; then
             cp "$LIB" zygisk_module/zygisk/jni/lib/${ABI}/
           else
-            # Create a valid stub .o and archive it
-            cat > /tmp/dobby_stub.c << 'EOF'
-void *DobbyHook(void *addr, void *replace, void **origin_call) { return 0; }
-EOF
-            ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
-              --target=aarch64-linux-android21 \
-              -c /tmp/dobby_stub.c -o /tmp/dobby_stub.o 2>/dev/null || true
+            printf 'void *DobbyHook(void *a, void *r, void **o) { return 0; }\n' > /tmp/dobby_stub.c
+            $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --target=aarch64-linux-android21 -c /tmp/dobby_stub.c -o /tmp/dobby_stub.o 2>/dev/null || true
             if [ -f /tmp/dobby_stub.o ]; then
-              ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar rcs \
-                zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a /tmp/dobby_stub.o 2>/dev/null
+              $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar rcs zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a /tmp/dobby_stub.o 2>/dev/null || true
             fi
-            # Ultimate fallback: just ar with a valid empty C file compiled by gcc
             if [ ! -f zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a ]; then
-              echo "int dummy;" > /tmp/dummy.c
-              gcc -c /tmp/dummy.c -o /tmp/dummy.o 2>/dev/null
-              ar rcs zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a /tmp/dummy.o 2>/dev/null || true
+              echo 'int _;' > /tmp/dummy.c && gcc -c /tmp/dummy.c -o /tmp/dummy.o 2>/dev/null && ar rcs zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a /tmp/dummy.o 2>/dev/null || true
             fi
           fi
         done
@@ -81,10 +67,7 @@ EOF
     - name: Build Zygisk native binary with ndk-build
       run: |
         cd zygisk_module/zygisk/jni
-        $ANDROID_NDK_LATEST_HOME/ndk-build \
-          NDK_PROJECT_PATH=. \
-          APP_BUILD_SCRIPT=Android.mk \
-          NDK_APPLICATION_MK=Application.mk
+        $ANDROID_NDK_LATEST_HOME/ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=Android.mk NDK_APPLICATION_MK=Application.mk
 
     - name: Package Zygisk Magisk Module
       run: |
@@ -92,15 +75,12 @@ EOF
         mkdir -p zygisk_module/zygisk/armeabi-v7a
         mkdir -p zygisk_module/zygisk/x86
         mkdir -p zygisk_module/zygisk/x86_64
-
         for ABI in arm64-v8a armeabi-v7a x86 x86_64; do
           SRC="zygisk_module/zygisk/libs/${ABI}/libwifi_bssid_changer_zygisk.so"
           DST="zygisk_module/zygisk/${ABI}/"
           [ -f "$SRC" ] && cp "$SRC" "$DST" || echo "Warning: $SRC not found"
         done
-
         rm -rf zygisk_module/zygisk/jni zygisk_module/zygisk/obj zygisk_module/zygisk/libs
-
         cd zygisk_module
         zip -r ../wifi_bssid_changer_zygisk.zip module.prop post-fs-data.sh service.sh zygisk/
         zipinfo ../wifi_bssid_changer_zygisk.zip
