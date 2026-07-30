@@ -1,0 +1,18 @@
+# Gradle files
+.gradle/
+build/
+app/build/
+
+# IDE files
+.idea/
+*.iml
+.navigation/
+
+# Native files / NDK obj
+zygisk_module/zygisk/obj/
+zygisk_module/zygisk/libs/
+zygisk_module/zygisk/jni/include/
+zygisk_module/zygisk/jni/lib/
+
+# Built zip
+*.zip
