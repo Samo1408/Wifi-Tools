@@ -40,9 +40,8 @@ static void load_config() {
     }
 }
 
-// Type aliases to disambiguate overloaded functions in NDK 29+
-using open_func_t  = int (*)(const char *, int, ...);
-using ioctl_func_t = int (*)(int, unsigned long, ...);
+// Type alias to disambiguate overloaded open() in NDK 29+
+using open_func_t = int (*)(const char *, int, ...);
 
 // Hook: redirect MAC address file reads to spoofed files
 static int (*orig_open)(const char *, int, ...);
@@ -58,8 +57,9 @@ static int hook_open(const char *path, int flags, mode_t mode) {
 }
 
 // Hook: spoof hardware MAC address for ioctl queries
-static int (*orig_ioctl)(int, unsigned long, ...);
-static int hook_ioctl(int fd, unsigned long req, void *argp) {
+// Bionic NDK 29 ioctl uses unsigned int for the request param (not unsigned long)
+static int (*orig_ioctl)(int, unsigned, ...);
+static int hook_ioctl(int fd, unsigned req, void *argp) {
     int ret = orig_ioctl(fd, req, argp);
     if (req == SIOCGIFHWADDR && argp) {
         struct ifreq *ifr = (struct ifreq *)argp;
@@ -90,7 +90,6 @@ public:
 
     void preAppSpecialize(AppSpecializeArgs * /*args*/) override {
         load_config();
-        // Write spoofed addresses to readable files
         auto write_file = [](const char *path, const std::string &val) {
             std::ofstream f(path);
             if (f.is_open()) f << val << "\n";
@@ -100,12 +99,13 @@ public:
     }
 
     void postAppSpecialize(const AppSpecializeArgs *) override {
-        // Explicit casts resolve overload ambiguity introduced in NDK 29
-        // (open and ioctl are now __overloadable / __pass_object_size)
+        // Explicit casts resolve overload ambiguity in NDK 29
+        // (open/ioctl are now __overloadable / __pass_object_size)
         DobbyHook((void *)(open_func_t)open,
                   (void *)hook_open,
                   (void **)&orig_open);
-        DobbyHook((void *)(ioctl_func_t)ioctl,
+        // Bionic ioctl uses unsigned (not unsigned long) for the request param
+        DobbyHook((void *)(int (*)(int, unsigned, ...))ioctl,
                   (void *)hook_ioctl,
                   (void **)&orig_ioctl);
     }
