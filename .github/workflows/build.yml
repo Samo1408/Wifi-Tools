@@ -22,12 +22,10 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Show pre-installed NDK
-      run: |
-        echo "NDK=$ANDROID_NDK_LATEST_HOME"
-        ls $ANDROID_NDK_LATEST_HOME
+    - name: Show NDK
+      run: echo "NDK=$ANDROID_NDK_LATEST_HOME"
 
-    - name: Download and Setup Dobby Hooking Library
+    - name: Download Dobby Library
       run: |
         mkdir -p dobby_dl
         curl -fL https://github.com/jmpews/Dobby/releases/latest/download/dobby-android-all.zip -o dobby_dl/all.zip 2>/dev/null || true
@@ -39,48 +37,33 @@ jobs:
         done
         mkdir -p zygisk_module/zygisk/jni/include
         mkdir -p zygisk_module/zygisk/jni/lib/arm64-v8a
-        mkdir -p zygisk_module/zygisk/jni/lib/armeabi-v7a
-        mkdir -p zygisk_module/zygisk/jni/lib/x86
-        mkdir -p zygisk_module/zygisk/jni/lib/x86_64
         DOBBY_H=$(find dobby_dl -name "dobby.h" 2>/dev/null | head -n 1)
         if [ -n "$DOBBY_H" ]; then
           cp "$DOBBY_H" zygisk_module/zygisk/jni/include/
         else
           printf '#pragma once\n#ifdef __cplusplus\nextern "C" {\n#endif\nvoid *DobbyHook(void *addr, void *replace, void **origin_call);\n#ifdef __cplusplus\n}\n#endif\n' > zygisk_module/zygisk/jni/include/dobby.h
         fi
-        for ABI in arm64-v8a armeabi-v7a x86 x86_64; do
-          LIB=$(find dobby_dl -path "*/${ABI}/libdobby.a" 2>/dev/null | head -n 1)
-          if [ -n "$LIB" ]; then
-            cp "$LIB" zygisk_module/zygisk/jni/lib/${ABI}/
-          else
-            printf '#ifdef __cplusplus\nextern "C" {\n#endif\nvoid *DobbyHook(void *a, void *r, void **o) { return 0; }\n#ifdef __cplusplus\n}\n#endif\n' > /tmp/dobby_stub.c
-            $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --target=aarch64-linux-android21 -c /tmp/dobby_stub.c -o /tmp/dobby_stub.o 2>/dev/null || true
-            if [ -f /tmp/dobby_stub.o ]; then
-              $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar rcs zygisk_module/zygisk/jni/lib/${ABI}/libdobby.a /tmp/dobby_stub.o 2>/dev/null || true
-            fi
-          fi
-        done
+        LIB=$(find dobby_dl -path "*/arm64-v8a/libdobby.a" 2>/dev/null | head -n 1)
+        if [ -n "$LIB" ]; then
+          cp "$LIB" zygisk_module/zygisk/jni/lib/arm64-v8a/
+        else
+          printf '#ifdef __cplusplus\nextern "C" {\n#endif\nvoid *DobbyHook(void *a, void *r, void **o) { return 0; }\n#ifdef __cplusplus\n}\n#endif\n' > /tmp/dobby_stub.c
+          $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --target=aarch64-linux-android21 -c /tmp/dobby_stub.c -o /tmp/dobby_stub.o 2>/dev/null
+          $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar rcs zygisk_module/zygisk/jni/lib/arm64-v8a/libdobby.a /tmp/dobby_stub.o
+        fi
 
-    - name: Build Zygisk native binary with ndk-build
+    - name: Build Zygisk Native Binary
       run: |
         cd zygisk_module/zygisk/jni
         $ANDROID_NDK_LATEST_HOME/ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=Android.mk NDK_APPLICATION_MK=Application.mk
 
-    - name: Package Zygisk Magisk Module
+    - name: Package Zygisk Module
       run: |
         mkdir -p zygisk_module/zygisk/arm64-v8a
-        mkdir -p zygisk_module/zygisk/armeabi-v7a
-        mkdir -p zygisk_module/zygisk/x86
-        mkdir -p zygisk_module/zygisk/x86_64
-        for ABI in arm64-v8a armeabi-v7a x86 x86_64; do
-          SRC="zygisk_module/zygisk/libs/${ABI}/libwifi_bssid_changer_zygisk.so"
-          DST="zygisk_module/zygisk/${ABI}/"
-          [ -f "$SRC" ] && cp "$SRC" "$DST" || echo "Warning: $SRC not found"
-        done
+        cp zygisk_module/zygisk/libs/arm64-v8a/libwifi_bssid_changer_zygisk.so zygisk_module/zygisk/arm64-v8a/
         rm -rf zygisk_module/zygisk/jni zygisk_module/zygisk/obj zygisk_module/zygisk/libs
         cd zygisk_module
         zip -r ../wifi_bssid_changer_zygisk.zip module.prop post-fs-data.sh service.sh zygisk/
-        zipinfo ../wifi_bssid_changer_zygisk.zip
         cd ..
 
     - name: Build Android App (Release APK)
@@ -88,14 +71,14 @@ jobs:
         chmod +x gradlew
         ./gradlew assembleRelease --no-daemon --stacktrace
 
-    - name: Upload APK Artifact
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: Wifi-Address-Changer-APK
         path: app/build/outputs/apk/release/*.apk
         if-no-files-found: warn
 
-    - name: Upload Zygisk Module Artifact
+    - name: Upload Zygisk Module
       uses: actions/upload-artifact@v4
       with:
         name: Wifi-Bssid-Changer-Zygisk-Module
