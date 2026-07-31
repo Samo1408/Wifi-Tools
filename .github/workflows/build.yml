@@ -66,18 +66,6 @@ jobs:
         zip -r ../wifi_bssid_changer_zygisk.zip module.prop post-fs-data.sh service.sh zygisk/
         cd ..
 
-    - name: Build Android App (Release APK)
-      run: |
-        chmod +x gradlew
-        ./gradlew assembleRelease --no-daemon --stacktrace
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: Wifi-Address-Changer-APK
-        path: app/build/outputs/apk/release/*.apk
-        if-no-files-found: warn
-
     - name: Upload Zygisk Module
       uses: actions/upload-artifact@v4
       with:
